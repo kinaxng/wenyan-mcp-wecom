@@ -60,14 +60,30 @@ export function createServer(): Server {
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (request.params.name === "publish_article") {
             const args = request.params.arguments || {};
-            const appId = args.wechat_app_id ? String(args.wechat_app_id) : undefined;
-            const appSecret = args.wechat_app_secret ? String(args.wechat_app_secret) : undefined;
+            const corpId = args.wecom_corp_id ? String(args.wecom_corp_id) : undefined;
+            const corpSecret = args.wecom_corp_secret ? String(args.wecom_corp_secret) : undefined;
+            const agentId = args.wecom_agent_id ? String(args.wecom_agent_id) : undefined;
+            const toUser = args.to_user ? String(args.to_user) : undefined;
+            const toParty = args.to_party ? String(args.to_party) : undefined;
+            const toTag = args.to_tag ? String(args.to_tag) : undefined;
             const content = String(args.content || "");
             const contentUrl = String(args.content_url || "");
             const file = String(args.file || "");
             const fileId = String(args.file_id || "");
             const themeId = String(args.theme_id || "");
-            return await publishArticle(fileId, contentUrl, file, content, themeId, appId, appSecret);
+            return await publishArticle(
+                fileId,
+                contentUrl,
+                file,
+                content,
+                themeId,
+                corpId,
+                corpSecret,
+                agentId,
+                toUser,
+                toParty,
+                toTag,
+            );
         } else if (request.params.name === "list_themes") {
             return listThemes();
         } else if (request.params.name === "register_theme") {

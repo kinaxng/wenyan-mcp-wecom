@@ -49,6 +49,13 @@
 
 
 
+
+## 企业微信 mpnews 使用说明（新）
+
+项目已支持将文章自动发布到**企业微信应用 mpnews**。
+
+请优先阅读新文档：[`WECOM_MPNEWS_USAGE.md`](./WECOM_MPNEWS_USAGE.md)。
+
 ## 功能特性
 
 ### Markdown 原生驱动

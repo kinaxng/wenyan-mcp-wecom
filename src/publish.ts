@@ -2,12 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fetchContent, getNormalizeFilePath, globalStates, log } from "./utils.js";
 import { configStore, renderStyledContent } from "@wenyan-md/core/wrapper";
-import { publishToDraft } from "@wenyan-md/core/publish";
+import { publishMpnews } from "./wecom.js";
 import { UPLOAD_DIR } from "./upload.js";
 
 export const PUBLISH_ARTICLE_SCHEMA = {
     name: "publish_article",
-    description: "Format a Markdown article using a selected theme and publish it to '微信公众号'.",
+    description: "Format a Markdown article using a selected theme and publish it to Enterprise WeCom app as 'mpnews'.",
     inputSchema: {
         type: "object",
         properties: {
@@ -37,7 +37,7 @@ export const PUBLISH_ARTICLE_SCHEMA = {
 
 export const PUBLISH_ARTICLE_SSE_SCHEMA = {
     name: "publish_article",
-    description: "Format a Markdown article using a selected theme and publish it to '微信公众号'.",
+    description: "Format a Markdown article using a selected theme and publish it to Enterprise WeCom app as 'mpnews'.",
     inputSchema: {
         type: "object",
         properties: {
@@ -61,13 +61,29 @@ export const PUBLISH_ARTICLE_SSE_SCHEMA = {
                 description:
                     "ID of the theme to use (e.g., default, orangeheart, rainbow, lapis, pie, maize, purple, phycat).",
             },
-            wechat_app_id: {
+            wecom_corp_id: {
                 type: "string",
-                description: "WeChat Official Account AppID. Required for stateless mode.",
+                description: "Enterprise WeCom CorpID. Required in SSE stateless mode if env is not set.",
             },
-            wechat_app_secret: {
+            wecom_corp_secret: {
                 type: "string",
-                description: "WeChat Official Account AppSecret. Required for stateless mode.",
+                description: "Enterprise WeCom app Secret. Required in SSE stateless mode if env is not set.",
+            },
+            wecom_agent_id: {
+                type: "string",
+                description: "Enterprise WeCom agent id. Required in SSE stateless mode if env is not set.",
+            },
+            to_user: {
+                type: "string",
+                description: "WeCom receiver user IDs. Use '|'-separated values, default '@all'.",
+            },
+            to_party: {
+                type: "string",
+                description: "WeCom receiver party IDs. Use '|'-separated values.",
+            },
+            to_tag: {
+                type: "string",
+                description: "WeCom receiver tag IDs. Use '|'-separated values.",
             },
         },
     },
@@ -79,8 +95,12 @@ export async function publishArticle(
     file: string,
     content: string,
     themeId: string,
-    appId?: string,
-    appSecret?: string,
+    corpId?: string,
+    corpSecret?: string,
+    agentIdRaw?: string,
+    toUser?: string,
+    toParty?: string,
+    toTag?: string,
 ) {
     let workingDir: string | undefined;
     let contentFinal: string | undefined;
@@ -123,7 +143,7 @@ export async function publishArticle(
 
     const processedContent = resolveAssetPaths(contentFinal);
 
-    // Render and Publish
+    // Render and Publish to WeCom mpnews
     const customTheme = configStore.getThemeById(themeId);
 
     const gzhContent = await renderStyledContent(processedContent, {
@@ -141,18 +161,38 @@ export async function publishArticle(
         throw new Error("Can't extract a valid cover from the frontmatter or article.");
     }
 
-    // Pass dynamic config to publishToDraft
-    const response = await publishToDraft(gzhContent.title, gzhContent.content, gzhContent.cover, {
-        relativePath: workingDir,
-        appId: appId,
-        appSecret: appSecret,
-    });
+    const resolvedCorpId = corpId || process.env.WECOM_CORP_ID || "";
+    const resolvedCorpSecret = corpSecret || process.env.WECOM_CORP_SECRET || "";
+    const resolvedAgentId = Number(agentIdRaw || process.env.WECOM_AGENT_ID || "");
+
+    if (!resolvedCorpId || !resolvedCorpSecret || !resolvedAgentId) {
+        throw new Error(
+            "Missing WeCom credentials. Please provide wecom_corp_id, wecom_corp_secret, wecom_agent_id (or set WECOM_CORP_ID/WECOM_CORP_SECRET/WECOM_AGENT_ID).",
+        );
+    }
+
+    const response = await publishMpnews(
+        {
+            title: gzhContent.title,
+            content: gzhContent.content,
+            cover: gzhContent.cover,
+            workingDir,
+        },
+        {
+            corpId: resolvedCorpId,
+            corpSecret: resolvedCorpSecret,
+            agentId: resolvedAgentId,
+            toUser,
+            toParty,
+            toTag,
+        },
+    );
 
     return {
         content: [
             {
                 type: "text",
-                text: `Your article was successfully published to '公众号草稿箱'. The media ID is ${response.media_id}.`,
+                text: `Your article was successfully sent to WeCom app as mpnews. The message ID is ${response.msgid}.`,
             },
         ],
     };
