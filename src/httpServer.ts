@@ -5,10 +5,7 @@ import url from "node:url";
 import { log } from "node:console";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { createServer } from "./mcpServer.js";
-import { handleUploadRequest, initUploadSystem } from "./upload.js";
 import { globalStates } from "./utils.js";
-
-initUploadSystem();
 
 /**
  * HTTP server configuration
@@ -112,21 +109,6 @@ export async function mainHttp(port: number, enableHttps: boolean) {
             }
         }
 
-        // Upload Endpoint
-        if (req.method === "POST" && pathname === "/upload") {
-            try {
-                const result = await handleUploadRequest(req);
-                res.writeHead(200, { "Content-Type": "application/json" });
-                res.end(JSON.stringify(result));
-            } catch (error: any) {
-                const statusCode = error.message === "No file uploaded" ? 400 : 500;
-                res.writeHead(statusCode, { "Content-Type": "application/json" });
-                res.end(JSON.stringify({ error: error.message || "Upload failed" }));
-            }
-            logRequest(req, res, startTime);
-            return;
-        }
-
         // Root endpoint
         if (req.method === "GET" && pathname === "/") {
             res.writeHead(200, { "Content-Type": "application/json" });
@@ -137,7 +119,6 @@ export async function mainHttp(port: number, enableHttps: boolean) {
                     endpoints: {
                         sse: "/sse",
                         message: "/message",
-                        upload: "/upload",
                         health: "/health",
                     },
                     config: {
